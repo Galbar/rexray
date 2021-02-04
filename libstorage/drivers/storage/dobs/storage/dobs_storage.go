@@ -511,17 +511,20 @@ func (d *driver) waitForAction(
 	f := func() (interface{}, error) {
 		duration := d.statusDelay
 		for i := 1; i <= d.maxAttempts; i++ {
-			action, _, err := d.client.StorageActions.Get(
+			action, resp, err := d.client.StorageActions.Get(
 				ctx, volumeID, action.ID)
-			if err != nil {
+			if resp != nil && resp.StatusCode == 404 {
+				ctx.Warn(err.Error())
+			} else if err != nil {
 				return nil, err
+			} else if action != nil {
+				if action.Status == godo.ActionCompleted {
+					return nil, nil
+				}
+				ctx.WithField("status", action.Status).Debug(
+					"still waiting for action",
+				)
 			}
-			if action.Status == godo.ActionCompleted {
-				return nil, nil
-			}
-			ctx.WithField("status", action.Status).Debug(
-				"still waiting for action",
-			)
 			time.Sleep(time.Duration(duration) * time.Nanosecond)
 			duration = int64(2) * duration
 		}
