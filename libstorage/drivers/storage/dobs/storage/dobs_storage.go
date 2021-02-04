@@ -513,15 +513,11 @@ func (d *driver) waitForAction(
 		for i := 1; i <= d.maxAttempts; i++ {
 			action, resp, err := d.client.StorageActions.Get(
 				ctx, volumeID, action.ID)
-			if err != nil {
-				if resp.StatusCode == 404 {
-					ctx.WithField("actionID", action.ID).Warn(
-						err.Error(),
-					)
-				} else {
-					return nil, err
-				}
-			} else {
+			if resp != nil && resp.StatusCode == 404 {
+				ctx.Warn(err.Error())
+			} else if err != nil {
+				return nil, err
+			} else if action != nil {
 				if action.Status == godo.ActionCompleted {
 					return nil, nil
 				}
